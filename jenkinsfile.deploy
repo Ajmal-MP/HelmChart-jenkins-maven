@@ -1,0 +1,34 @@
+//Getting the last success full build number
+def buildNumber = "1."+Jenkins.instance.getItem('build').lastSuccessfulBuild.number
+//edit the values to remote acces
+def remote = [:]
+remote.name = 'username'
+remote.host = 'host name'
+remote.user = 'user'
+remote.password = 'passwd'
+remote.allowAnyHosts = true
+pipeline {
+    agent any
+    
+
+    stages {
+        stage('Downloading helm chart from ECR ') {
+            steps {
+                script{
+                    withCredentials([aws(credentialsId: 'ecr-credential', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh "helm pull  oci://776606234209.dkr.ecr.ap-northeast-1.amazonaws.com/maven-tomcat --version ${buildNumber}"
+                        sh "helm install maven-tomcat maven-tomcat-${buildNumber}.tgz"
+                    }
+                    
+                    
+                    sshCommand remote: remote, command: '''
+                                                        cd /home/ajmal/jenkins_compose/jenkins_configuration/workspace/deploy 
+                                                        helm install maven-tomcat maven-tomcat-${buildNumber}.tgz
+                                                        '''
+                    
+                    
+                }
+            }
+        }
+    }
+}
